@@ -1,0 +1,62 @@
+<!-- Server/frontend/public/login.html -->
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Login — ArcadeHub</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="container" style="max-width:520px">
+    <header style="display:flex;justify-content:space-between;align-items:center">
+      <div class="brand">
+        <div class="logo">AH</div>
+        <h1 style="font-size:18px">Iniciar sesión</h1>
+      </div>
+      <div>
+        <button class="btn secondary" onclick="location.href='/'">Home</button>
+      </div>
+    </header>
+
+    <main style="margin-top:28px">
+      <div class="hero-card">
+        <h2>Bienvenido</h2>
+        <p class="small">Accede a tu biblioteca y gestión de juegos.</p>
+
+        <form id="loginForm" class="form">
+          <input class="input" id="emailOrUsername" placeholder="Correo o usuario" required />
+          <input class="input" id="password" type="password" placeholder="Contraseña" required />
+          <button class="btn" type="submit">Entrar</button>
+        </form>
+
+        <div style="margin-top:12px;color:var(--muted)">¿No tienes cuenta? <a href="/register.html">Regístrate</a></div>
+      </div>
+    </main>
+  </div>
+
+<script>
+const API = '/api';
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const emailOrUsername = document.getElementById('emailOrUsername').value.trim();
+  const password = document.getElementById('password').value;
+
+  const res = await fetch(API + '/auth/login', {
+    method: 'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({ emailOrUsername, password })
+  });
+  const data = await res.json();
+  if(res.ok){
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('username', data.user.username);
+    alert('Bienvenido ' + data.user.username);
+    location.href = '/';
+  } else {
+    alert(data.message || 'Credenciales inválidas');
+  }
+});
+</script>
+</body>
+</html>

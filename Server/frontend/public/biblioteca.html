@@ -1,0 +1,75 @@
+<!-- Server/frontend/public/biblioteca.html -->
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mi Biblioteca — ArcadeHub</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="brand"><div class="logo">AH</div><h1>Mi Biblioteca</h1></div>
+      <div>
+        <button class="btn" onclick="location.href='/'">Home</button>
+      </div>
+    </header>
+
+    <main style="margin-top:20px">
+      <div id="libList"></div>
+    </main>
+  </div>
+
+<script>
+const API = '/api';
+
+async function checkAuth(){
+  const token = localStorage.getItem('token');
+  if(!token) { alert('Debes iniciar sesión para ver tu biblioteca'); return location.href = '/login.html'; }
+  return token;
+}
+
+async function loadLibrary(){
+  const token = await checkAuth();
+  const res = await fetch(API + '/library', { headers:{ Authorization:'Bearer '+token }});
+  if(!res.ok){ const d = await res.json(); alert(d.message || 'Error'); return; }
+  const games = await res.json();
+  const list = document.getElementById('libList');
+  if(!games.length){
+    list.innerHTML = '<div style="color:var(--muted)">Tu biblioteca está vacía. Agrega juegos desde el catálogo.</div>';
+    return;
+  }
+  list.innerHTML = games.map(g => `
+    <div class="card" style="margin-bottom:12px;display:flex;gap:12px;align-items:center">
+      <div style="width:90px;height:70px;border-radius:8px;background:linear-gradient(90deg,var(--accent-2),var(--accent));display:flex;align-items:center;justify-content:center">
+        ${g.coverUrl ? '<img src="'+g.coverUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:8px" />' : g.title[0]}
+      </div>
+      <div style="flex:1">
+        <h3 style="margin:0">${g.title}</h3>
+        <p class="small">${g.genre || '—'}</p>
+      </div>
+      <div>
+        <button class="btn" onclick="remove('${g._id}')">Eliminar</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function remove(id){
+  if(!confirm('Quitar de biblioteca?')) return;
+  const token = localStorage.getItem('token');
+  const r = await fetch(API + '/library/remove', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json','Authorization':'Bearer '+token },
+    body: JSON.stringify({ gameId: id })
+  });
+  const d = await r.json();
+  if(r.ok) loadLibrary();
+  else alert(d.message || 'Error');
+}
+
+loadLibrary();
+</script>
+</body>
+</html>

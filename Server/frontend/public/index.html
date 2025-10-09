@@ -1,0 +1,183 @@
+<!-- Server/frontend/public/index.html -->
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ArcadeHub — Home</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="brand">
+        <div class="logo">AH</div>
+        <div>
+          <h1>ArcadeHub</h1>
+          <div style="font-size:12px;color:var(--muted)">Tu plataforma indie para juegos</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <button class="btn" id="catalogBtn">Catálogo</button>
+        <button class="btn secondary" id="libraryBtn">Mi Biblioteca</button>
+        <button class="btn secondary" id="loginBtn">Iniciar sesión</button>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <div class="hero-card">
+        <h2>Descubre, colecciona y juega.</h2>
+        <p>ArcadeHub es un espacio moderno para que agregues y gestiones tus juegos. Regístrate y crea tu biblioteca personal.</p>
+
+        <div class="quick-actions">
+          <div class="search" style="flex:1">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M21 21l-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <input id="searchInput" placeholder="Buscar juegos..." />
+            <button class="btn" id="searchBtn" style="border-radius:8px;padding:8px 12px">Buscar</button>
+          </div>
+          <button class="btn" id="createGameBtn">Agregar juego</button>
+        </div>
+
+        <div style="margin-top:18px;color:var(--muted);font-size:13px">
+          Tip: Regístrate para guardar juegos en tu biblioteca. ¡Puedes añadir, editar o eliminar juegos si estás autenticado!
+        </div>
+      </div>
+
+      <aside style="padding:18px;background:var(--card);border-radius:12px;height:200px;">
+        <h3 style="margin-top:0">Perfil rápido</h3>
+        <p id="fastProfile" style="color:var(--muted)">No has iniciado sesión.</p>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn" id="goLogin">Login</button>
+          <button class="btn secondary" id="goRegister">Registro</button>
+        </div>
+      </aside>
+    </section>
+
+    <section class="grid" id="gamesGrid">
+      <!-- tarjetas de juegos cargadas desde API -->
+    </section>
+
+    <div class="footer">© ArcadeHub - Proyecto de práctica</div>
+  </div>
+
+<script>
+const API = '/api';
+
+function formatPrice(p){ return p && p > 0 ? '$' + p.toFixed(2) : 'Gratis' }
+
+async function loadGames(q='') {
+  const res = await fetch(API + '/games' + (q ? '?q=' + encodeURIComponent(q) : ''));
+  const games = await res.json();
+  const grid = document.getElementById('gamesGrid');
+  grid.innerHTML = '';
+  if(!games.length){
+    grid.innerHTML = '<div style="color:var(--muted)">No hay juegos. Inicia sesión y agrega alguno.</div>';
+    return;
+  }
+  for (const g of games) {
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML = `
+      <div class="cover">${g.coverUrl ? '<img src="'+g.coverUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:8px" />' : g.title[0]}</div>
+      <h3>${g.title}</h3>
+      <p class="small">${g.genre || '—'} · ${g.releaseDate ? new Date(g.releaseDate).getFullYear() : 'Fecha desconocida'}</p>
+      <p>${g.description ? g.description.slice(0,100) + (g.description.length>100 ? '...' : '') : 'Sin descripción'}</p>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+        <div style="font-weight:700">${formatPrice(g.price)}</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="addToLibrary('${g._id}')">Agregar</button>
+          <button class="btn secondary" onclick="openEdit('${g._id}')">Editar</button>
+          <button class="btn secondary" onclick="deleteGame('${g._id}')">Eliminar</button>
+        </div>
+      </div>
+    `;
+    grid.appendChild(el);
+  }
+}
+
+async function addToLibrary(gameId){
+  const token = localStorage.getItem('token');
+  if(!token){ alert('Debes iniciar sesión para agregar a tu biblioteca'); return location.href = '/login.html'; }
+  const res = await fetch(API + '/library/add', {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token },
+    body: JSON.stringify({ gameId })
+  });
+  const data = await res.json();
+  if(res.ok) alert('Juego agregado a tu biblioteca!');
+  else alert(data.message || 'Error');
+}
+
+async function deleteGame(id){
+  const token = localStorage.getItem('token');
+  if(!token){ alert('Solo usuarios autenticados pueden eliminar'); return location.href = '/login.html'; }
+  if(!confirm('¿Eliminar este juego?')) return;
+  const res = await fetch(API + '/games/' + id, { method:'DELETE', headers:{ Authorization:'Bearer '+token } });
+  const d = await res.json();
+  if(res.ok){ alert('Eliminado'); loadGames(); } else alert(d.message || 'Error');
+}
+
+function openEdit(id){
+  const token = localStorage.getItem('token');
+  if(!token){ alert('Debes iniciar sesión para editar'); return location.href = '/login.html'; }
+  // open a quick modal using prompt (simple)
+  (async ()=>{
+    const r = await fetch(API + '/games/' + id);
+    if(!r.ok){ alert('No encontrado'); return; }
+    const g = await r.json();
+    const newTitle = prompt('Título', g.title);
+    if(newTitle === null) return;
+    const newPrice = prompt('Precio', g.price || 0);
+    await fetch(API + '/games/' + id, {
+      method:'PUT',
+      headers:{ 'Content-Type':'application/json','Authorization':'Bearer '+token },
+      body: JSON.stringify({ title:newTitle, price: parseFloat(newPrice) })
+    });
+    loadGames();
+  })();
+}
+
+document.getElementById('searchBtn').addEventListener('click', ()=> {
+  const q = document.getElementById('searchInput').value.trim();
+  loadGames(q);
+});
+document.getElementById('catalogBtn').addEventListener('click', ()=> location.href = '/catalogo.html');
+document.getElementById('libraryBtn').addEventListener('click', ()=> location.href = '/biblioteca.html');
+document.getElementById('loginBtn').addEventListener('click', ()=> location.href = '/login.html');
+document.getElementById('goLogin').addEventListener('click', ()=> location.href = '/login.html');
+document.getElementById('goRegister').addEventListener('click', ()=> location.href = '/register.html');
+document.getElementById('createGameBtn').addEventListener('click', async ()=>{
+  const token = localStorage.getItem('token');
+  if(!token){ alert('Inicia sesión para agregar juegos'); return location.href = '/login.html'; }
+  const title = prompt('Título del juego');
+  if(!title) return;
+  const price = prompt('Precio', '0');
+  const description = prompt('Descripción', '');
+  await fetch(API + '/games', {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json','Authorization':'Bearer '+token },
+    body: JSON.stringify({ title, price: parseFloat(price || 0), description })
+  });
+  loadGames();
+});
+
+function updateProfileUI(){
+  const username = localStorage.getItem('username');
+  const fast = document.getElementById('fastProfile');
+  const loginBtn = document.getElementById('loginBtn');
+  if(username){
+    fast.textContent = 'Conectado como ' + username;
+    loginBtn.textContent = 'Cerrar sesión';
+    loginBtn.onclick = ()=> { localStorage.removeItem('token'); localStorage.removeItem('username'); location.reload(); }
+  } else {
+    fast.textContent = 'No has iniciado sesión.';
+    loginBtn.textContent = 'Iniciar sesión';
+    loginBtn.onclick = ()=> { location.href = '/login.html'; }
+  }
+}
+
+updateProfileUI();
+loadGames();
+</script>
+</body>
+</html>

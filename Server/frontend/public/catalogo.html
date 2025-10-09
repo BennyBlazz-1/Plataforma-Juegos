@@ -1,0 +1,120 @@
+<!-- Server/frontend/public/catalogo.html -->
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Catálogo — ArcadeHub</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="brand"><div class="logo">AH</div><h1>Catálogo</h1></div>
+      <div>
+        <button class="btn" onclick="location.href='/'">Home</button>
+      </div>
+    </header>
+
+    <main style="margin-top:20px">
+      <div style="display:flex;gap:12px;align-items:center">
+        <input id="q" class="input" placeholder="Buscar..." />
+        <button class="btn" id="btnSearch">Buscar</button>
+        <button class="btn secondary" id="btnNew">Nuevo juego</button>
+      </div>
+
+      <div style="margin-top:16px" id="catalogList"></div>
+    </main>
+  </div>
+
+<script>
+const API = '/api';
+
+function tplGameRow(g){
+  return `<div class="card" style="margin-bottom:12px;display:flex;gap:12px;align-items:flex-start">
+    <div style="width:100px;height:80px;border-radius:8px;background:linear-gradient(90deg,var(--accent-2),var(--accent));display:flex;align-items:center;justify-content:center;font-weight:700">
+      ${g.coverUrl ? '<img src="'+g.coverUrl+'" style="width:100%;height:100%;object-fit:cover;border-radius:8px" />' : g.title[0]}
+    </div>
+    <div style="flex:1">
+      <h3 style="margin:0">${g.title}</h3>
+      <p class="small">${g.genre || '—'} · ${g.releaseDate ? new Date(g.releaseDate).toLocaleDateString() : '—'}</p>
+      <p style="margin:8px 0">${g.description ? g.description.slice(0,180) + (g.description.length>180?'...':'') : 'Sin descripción'}</p>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="addLib('${g._id}')">Agregar a mi biblioteca</button>
+        <button class="btn secondary" onclick="editGame('${g._id}')">Editar</button>
+        <button class="btn secondary" onclick="delGame('${g._id}')">Eliminar</button>
+      </div>
+    </div>
+    <div style="min-width:120px;text-align:right">
+      <div style="font-weight:700">${g.price>0 ? '$' + g.price.toFixed(2) : 'Gratis'}</div>
+    </div>
+  </div>`;
+}
+
+async function load(q=''){
+  const res = await fetch(API + '/games' + (q ? '?q=' + encodeURIComponent(q) : ''));
+  const games = await res.json();
+  const list = document.getElementById('catalogList');
+  list.innerHTML = games.map(tplGameRow).join('');
+}
+
+async function addLib(id){
+  const token = localStorage.getItem('token');
+  if(!token){ alert('Inicia sesión primero'); return location.href = '/login.html'; }
+  const r = await fetch(API + '/library/add', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json','Authorization':'Bearer '+token },
+    body: JSON.stringify({ gameId: id })
+  });
+  const d = await r.json();
+  if(r.ok) alert('Agregado a tu biblioteca');
+  else alert(d.message || 'Error');
+}
+
+async function delGame(id){
+  const token = localStorage.getItem('token');
+  if(!token){ alert('Inicia sesión primero'); return location.href = '/login.html'; }
+  if(!confirm('Eliminar juego?')) return;
+  const r = await fetch(API + '/games/' + id, { method:'DELETE', headers:{ Authorization:'Bearer '+token }});
+  const d = await r.json();
+  if(r.ok){ alert('Eliminado'); load(document.getElementById('q').value); } else alert(d.message||'Error');
+}
+
+async function editGame(id){
+  const token = localStorage.getItem('token');
+  if(!token){ alert('Inicia sesión primero'); return location.href = '/login.html'; }
+  const gRes = await fetch(API + '/games/' + id);
+  if(!gRes.ok) return alert('No encontrado');
+  const g = await gRes.json();
+  const title = prompt('Título', g.title);
+  if(title === null) return;
+  const price = prompt('Precio', g.price);
+  const description = prompt('Descripción', g.description || '');
+  await fetch(API + '/games/' + id, {
+    method:'PUT',
+    headers:{ 'Content-Type':'application/json','Authorization':'Bearer '+token },
+    body: JSON.stringify({ title, price: parseFloat(price||0), description })
+  });
+  load(document.getElementById('q').value);
+}
+
+document.getElementById('btnSearch').addEventListener('click', ()=> load(document.getElementById('q').value));
+document.getElementById('btnNew').addEventListener('click', async ()=>{
+  const token = localStorage.getItem('token');
+  if(!token){ alert('Inicia sesión para crear juegos'); return location.href = '/login.html'; }
+  const title = prompt('Título');
+  if(!title) return;
+  const price = prompt('Precio', '0');
+  const desc = prompt('Descripción', '');
+  await fetch(API + '/games', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json','Authorization':'Bearer '+token },
+    body: JSON.stringify({ title, price: parseFloat(price || 0), description: desc })
+  });
+  load();
+});
+
+load();
+</script>
+</body>
+</html>
