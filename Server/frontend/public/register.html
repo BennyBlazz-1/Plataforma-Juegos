@@ -1,0 +1,64 @@
+<!-- Server/frontend/public/register.html -->
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Registro — ArcadeHub</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="container" style="max-width:520px">
+    <header style="display:flex;justify-content:space-between;align-items:center">
+      <div class="brand">
+        <div class="logo">AH</div>
+        <h1 style="font-size:18px">Registro</h1>
+      </div>
+      <div>
+        <button class="btn secondary" onclick="location.href='/'">Home</button>
+      </div>
+    </header>
+
+    <main style="margin-top:28px">
+      <div class="hero-card">
+        <h2>Crear cuenta</h2>
+        <p class="small">Empieza a coleccionar tus juegos favoritos.</p>
+
+        <form id="registerForm" class="form">
+          <input class="input" id="username" placeholder="Usuario" required />
+          <input class="input" id="email" type="email" placeholder="Correo" required />
+          <input class="input" id="password" type="password" placeholder="Contraseña" required />
+          <button class="btn" type="submit">Registrarme</button>
+        </form>
+
+        <div style="margin-top:12px;color:var(--muted)">¿Ya tienes cuenta? <a href="/login.html">Inicia sesión</a></div>
+      </div>
+    </main>
+  </div>
+
+<script>
+const API = '/api';
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('username').value.trim();
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  const res = await fetch(API + '/auth/register', {
+    method: 'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({ username, email, password })
+  });
+  const data = await res.json();
+  if(res.ok){
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('username', data.user.username);
+    alert('Registrado. Bienvenido ' + data.user.username);
+    location.href = '/';
+  } else {
+    alert(data.message || 'Error en el registro');
+  }
+});
+</script>
+</body>
+</html>
